@@ -1,62 +1,30 @@
-// Function to fetch and display trucking companies
-function loadTruckingCompanies() {
-    const jsonUrl = document.getElementById('jsonUrl').value;
-    const errorMessage = document.getElementById('errorMessage');
-  
-    // Clear any previous error message
-    errorMessage.innerHTML = '';
-  
-    if (!jsonUrl) {
-      errorMessage.innerHTML = 'Please enter a valid JSON file URL.';
+document.getElementById('go').addEventListener('click', async () => {
+  const err = document.getElementById('errorMessage');
+  err.textContent = '';
+
+  const file = (document.getElementById('jsonFile').value || '').trim();
+  if (!file || !/\.json$/i.test(file)) {
+    err.textContent = 'Please enter a valid JSON filename, like truckinglist.json.';
+    return;
+  }
+
+  try {// send the filename to Python script (fetch)
+    const res = await fetch(`/cgi-bin/trucks.py?file=${encodeURIComponent(file)}`, {
+      method: 'GET',
+      headers: { 'Accept': 'text/html' }
+    });
+
+    const html = await res.text();
+    
+    const w = window.open('', '', 'width=900,height=650,scrollbars=yes');
+    if (!w) {
+      err.textContent = 'Popup blocked — allow popups for this site.';
       return;
     }
-  
-    // Fetch the JSON file from the server
-    fetch(jsonUrl)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json(); // Parse the JSON file
-      })
-      .then(data => {
-        // Check if the JSON contains trucking companies
-        if (data.Mainline && data.Mainline.Table && data.Mainline.Table.Row && data.Mainline.Table.Row.length > 0) {
-          displayTruckingCompanies(data);
-        } else {
-          throw new Error('No trucking companies found in the JSON file');
-        }
-      })
-      .catch(error => {
-        errorMessage.innerHTML = `Error: ${error.message}`;
-      });
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  } catch (e) {
+    err.textContent = 'Request failed: ' + e.message;
   }
-  
-  // Function to display trucking companies in a new pop-up window
-  function displayTruckingCompanies(data) {
-    // Create a new window for displaying the table
-    const tableWindow = window.open('', '', 'width=800,height=600,scrollbars=yes');
-    let tableHTML = '<table border="1"><tr>';
-  
-    // Create table headers dynamically from the "Header" data
-    const headers = data.Mainline.Table.Header.Data;
-    headers.forEach(header => {
-      tableHTML += `<th>${header}</th>`;
-    });
-    tableHTML += '</tr>';
-  
-    // Loop through each trucking company and add rows to the table
-    data.Mainline.Table.Row.forEach(company => {
-      tableHTML += '<tr>';
-      tableHTML += `<td>${company.Company || ''}</td>`;
-      tableHTML += `<td>${company.Services || ''}</td>`;
-      tableHTML += `<td>${company.Hubs.Hub.join(', ') || ''}</td>`;
-      tableHTML += `<td>${company.Revenue || ''}</td>`;
-      tableHTML += `<td><a href="${company.HomePage}" target="_blank">HomePage</a></td>`;
-      tableHTML += `<td><img src="${company.Logo}" alt="${company.Company} Logo" width="50" /></td>`;
-      tableHTML += '</tr>';
-    });
-  
-    tableHTML += '</table>';
-    tableWindow.document.write(tableHTML); // Write the HTML table to the pop-up window
-  }
+});
